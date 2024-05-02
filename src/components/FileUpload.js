@@ -10,7 +10,7 @@ const FileUpload = () => {
     setSelectedFile(file);
   };
 
-  const handleFileUpload = () => {
+  const handleFileUploadChunk = () => {
     if (!selectedFile) {
       alert("Please select a file to upload.");
       return;
@@ -65,6 +65,82 @@ const FileUpload = () => {
     };
 
     uploadNextChunk();
+  };
+
+  const slugify = (text) => {
+    return text.toString().toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '');
+  };
+
+  // const CHUNK_SIZE = 1024 * 1024; // 1MB chunk size
+  const CHUNK_SIZE = 1024 * 512; // 512 KB chunk size
+
+  const handleFileUpload = async () => {
+    if (!selectedFile) {
+      alert("Please select a file to upload.");
+      return;
+    }
+
+    // Create a new FileReader instance
+    const reader = new FileReader();
+
+    // Define a function to execute when the file is read
+    reader.onload = async function (event) {
+      const fileData = event.target.result; // Get the base64 data
+      const fileSize = fileData.length;
+
+      // Calculate the number of chunks
+      const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+
+      // Send each chunk to the server using Fetch API
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, fileSize);
+        const chunk = fileData.substring(start, end);
+
+        try {
+          await sendChunkToServer(chunk, i + 1, totalChunks, selectedFile.name);
+          console.log(`Chunk ${i + 1}/${totalChunks} sent successfully.`);
+        } catch (error) {
+          console.error(`Failed to send chunk ${i + 1}/${totalChunks}:`, error);
+          return; // Stop uploading if an error occurs
+        }
+      }
+
+      console.log('File upload completed.');
+    };
+
+    // Read the selected file as base64
+    reader.readAsDataURL(selectedFile);
+  };
+
+  const sendChunkToServer = async (chunk, chunkNumber, totalChunks, originalName) => {
+    try {
+      const response = await fetch('http://localhost:8080/report', {
+        method: 'POST',
+        body: JSON.stringify({
+          chunk: chunk,
+          chunkNumber: chunkNumber,
+          totalChunks: totalChunks,
+          slug: slugify(originalName),
+        }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload chunk');
+      }
+
+      return response.json();
+    } catch (error) {
+      throw error;
+    }
   };
 
   return (
