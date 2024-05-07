@@ -10,54 +10,6 @@ const FileUpload = () => {
     setSelectedFile(file);
   };
 
-  const handleFileUploadChunk = () => {
-    if (!selectedFile) {
-      alert("Please select a file to upload.");
-      return;
-    }
-
-    const chunkSize = 5 * 1024 * 1024; // 5MB (adjust based on your requirements)
-    const totalChunks = Math.ceil(selectedFile.size / chunkSize);
-    const chunkProgress = 100 / totalChunks;
-    let chunkNumber = 0;
-    let start = 0;
-    let end = 0;
-
-    const uploadNextChunk = async () => {
-      if (end <= selectedFile.size) {
-        const chunk = selectedFile.slice(0);
-        const formData = new FormData();
-        formData.append("file", chunk);
-
-        fetch("http://localhost:8080/report", {
-          method: "POST",
-          body: formData,
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            console.log({ data });
-            const temp = `Chunk ${chunkNumber + 1}/${totalChunks} uploaded successfully`;
-            setStatus(temp);
-            setProgress(Number((chunkNumber + 1) * chunkProgress));
-            console.log(temp);
-            chunkNumber++;
-            start = end;
-            end = start + chunkSize;
-            uploadNextChunk();
-          })
-          .catch((error) => {
-            console.error("Error uploading chunk:", error);
-          });
-      } else {
-        setProgress(100);
-        setSelectedFile(null);
-        setStatus("File upload completed");
-      }
-    };
-
-    uploadNextChunk();
-  };
-
   const slugify = (text) => {
     return text.toString().toLowerCase()
       .replace(/\s+/g, '-')
@@ -67,7 +19,7 @@ const FileUpload = () => {
       .replace(/-+$/, '');
   };
 
-  const CHUNK_SIZE = 1024 * 1024; // 1MB chunk size
+  const CHUNK_SIZE = 1024 * 1024 * 0.9; // 1MB chunk size
   // const CHUNK_SIZE = 1024 * 512; // 512 KB chunk size
 
   const handleFileUpload = async () => {
@@ -118,7 +70,7 @@ const FileUpload = () => {
 
   const sendChunkToServer = async (chunk, chunkNumber, totalChunks, originalName) => {
     try {
-      const response = await fetch('http://localhost:8080/report/chunk', {
+      const response = await fetch('https:api.qapopulix.co/report/chunk', {
         method: 'POST',
         body: JSON.stringify({
           chunk: chunk,
