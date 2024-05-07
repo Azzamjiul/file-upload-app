@@ -25,22 +25,13 @@ const FileUpload = () => {
 
     const uploadNextChunk = async () => {
       if (end <= selectedFile.size) {
-        // const chunk = selectedFile.slice(start, end);
         const chunk = selectedFile.slice(0);
         const formData = new FormData();
         formData.append("file", chunk);
-        // formData.append("chunkNumber", chunkNumber);
-        // formData.append("totalChunks", totalChunks);
-        // formData.append("originalname", selectedFile.name);
 
         fetch("http://localhost:8080/report", {
           method: "POST",
           body: formData,
-          // Add headers if needed (e.g., authorization token)
-          // headers: {
-          //   "Content-Type": "application/octet-stream", // Set the content type to indicate raw binary data
-          // },
-          // body: chunk,
         })
           .then((response) => response.json())
           .then((data) => {
@@ -76,8 +67,8 @@ const FileUpload = () => {
       .replace(/-+$/, '');
   };
 
-  // const CHUNK_SIZE = 1024 * 1024; // 1MB chunk size
-  const CHUNK_SIZE = 1024 * 512; // 512 KB chunk size
+  const CHUNK_SIZE = 1024 * 1024; // 1MB chunk size
+  // const CHUNK_SIZE = 1024 * 512; // 512 KB chunk size
 
   const handleFileUpload = async () => {
     if (!selectedFile) {
@@ -96,22 +87,29 @@ const FileUpload = () => {
       // Calculate the number of chunks
       const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
 
-      // Send each chunk to the server using Fetch API
+      // Create an array to store promises for sending chunks to the server
+      const chunkPromises = [];
+
+      // Loop through each chunk and create a promise for sending it to the server
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, fileSize);
         const chunk = fileData.substring(start, end);
 
-        try {
-          await sendChunkToServer(chunk, i + 1, totalChunks, selectedFile.name);
-          console.log(`Chunk ${i + 1}/${totalChunks} sent successfully.`);
-        } catch (error) {
-          console.error(`Failed to send chunk ${i + 1}/${totalChunks}:`, error);
-          return; // Stop uploading if an error occurs
-        }
+        // Push a promise for sending the chunk to the array
+        chunkPromises.push(sendChunkToServer(chunk, i, totalChunks, selectedFile.name));
       }
 
-      console.log('File upload completed.');
+      // Use Promise.all() to wait for all chunk promises to resolve
+      Promise.all(chunkPromises)
+        .then(() => {
+          console.log('All chunks sent successfully.');
+          console.log('File upload completed.');
+        })
+        .catch(error => {
+          console.error('Error sending chunks:', error);
+          // Handle error if needed
+        });
     };
 
     // Read the selected file as base64
@@ -120,7 +118,7 @@ const FileUpload = () => {
 
   const sendChunkToServer = async (chunk, chunkNumber, totalChunks, originalName) => {
     try {
-      const response = await fetch('http://localhost:8080/report', {
+      const response = await fetch('http://localhost:8080/report/chunk', {
         method: 'POST',
         body: JSON.stringify({
           chunk: chunk,
@@ -129,7 +127,8 @@ const FileUpload = () => {
           slug: slugify(originalName),
         }),
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': '',
         }
       });
 
